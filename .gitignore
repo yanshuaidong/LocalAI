@@ -1,0 +1,43 @@
+# go-llama build artifacts
+go-llama
+go-llama-stable
+/gpt4all
+go-stable-diffusion
+go-piper
+/go-bert
+go-ggllm
+/piper
+__pycache__/
+*.a
+get-sources
+
+go-ggml-transformers
+go-gpt2
+go-rwkv
+whisper.cpp
+/bloomz
+go-bert
+
+# LocalAI build binary
+LocalAI
+local-ai
+# prevent above rules from omitting the helm chart
+!charts/*
+# prevent above rules from omitting the api/localai folder
+!api/localai
+
+# Ignore models
+models/*
+test-models/
+test-dir/
+
+release/
+
+# just in case
+.DS_Store
+.idea
+
+# Generated during build
+backend-assets/
+prepare
+/ggml-metal.metal

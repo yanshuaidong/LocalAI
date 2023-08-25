@@ -1,0 +1,81 @@
+---
+name: 'tests'
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+
+concurrency:
+  group: ci-tests-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  ubuntu-latest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.21.x']
+    steps:
+      - name: Clone
+        uses: actions/checkout@v3
+        with: 
+          submodules: true
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+      # You can test your matrix by printing the current Go version
+      - name: Display Go version
+        run: go version
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential ffmpeg
+          
+          sudo apt-get install -y ca-certificates cmake curl patch
+          sudo apt-get install -y libopencv-dev && sudo ln -s /usr/include/opencv4/opencv2 /usr/include/opencv2
+          sudo pip install -r extra/requirements.txt
+
+          sudo mkdir /build && sudo chmod -R 777 /build && cd /build && \
+          curl -L "https://github.com/gabime/spdlog/archive/refs/tags/v1.11.0.tar.gz" | \
+          tar -xzvf - && \
+          mkdir -p "spdlog-1.11.0/build" && \
+          cd "spdlog-1.11.0/build" && \
+          cmake ..  && \
+          make -j8 && \
+          sudo cmake --install . --prefix /usr && mkdir -p "lib/Linux-$(uname -m)" && \
+          cd /build && \
+          mkdir -p "lib/Linux-$(uname -m)/piper_phonemize" && \
+          curl -L "https://github.com/rhasspy/piper-phonemize/releases/download/v1.0.0/libpiper_phonemize-amd64.tar.gz" | \
+          tar -C "lib/Linux-$(uname -m)/piper_phonemize" -xzvf - && ls -liah /build/lib/Linux-$(uname -m)/piper_phonemize/ && \
+          sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/lib/. /usr/lib/ && \
+          sudo ln -s /usr/lib/libpiper_phonemize.so /usr/lib/libpiper_phonemize.so.1 && \
+          sudo cp -rfv /build/lib/Linux-$(uname -m)/piper_phonemize/include/. /usr/include/
+      - name: Test
+        run: |
+          ESPEAK_DATA="/build/lib/Linux-$(uname -m)/piper_phonemize/lib/espeak-ng-data" GO_TAGS="tts stablediffusion" make test
+
+  macOS-latest:
+    runs-on: macOS-latest
+    strategy:
+      matrix:
+        go-version: ['1.21.x']
+    steps:
+      - name: Clone
+        uses: actions/checkout@v3
+        with: 
+          submodules: true
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+      # You can test your matrix by printing the current Go version
+      - name: Display Go version
+        run: go version
+      - name: Test
+        run: |
+          CMAKE_ARGS="-DLLAMA_F16C=OFF -DLLAMA_AVX512=OFF -DLLAMA_AVX2=OFF -DLLAMA_FMA=OFF" make test
